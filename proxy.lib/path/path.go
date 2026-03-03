@@ -32,6 +32,9 @@ const (
 // modNow 程序当前的模式
 var modNow ModType
 
+// HomeDir 外部指定的 Home 目录，用于测试
+var HomeDir string
+
 var (
 	// ErrHomeNotFound HOME 目录找不到
 	ErrHomeNotFound = errors.New("home path not found")
@@ -46,6 +49,10 @@ func Init(mod ModType) {
 
 // Home 获取用户 Home 目录
 func Home() (homePath string, err error) {
+	if HomeDir != "" {
+		homePath = HomeDir
+		return
+	}
 	user, err := user.Current()
 	if err == nil {
 		homePath = user.HomeDir

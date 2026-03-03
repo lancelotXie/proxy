@@ -1,6 +1,6 @@
 module github.com/lancelotXie/proxy
 
-go 1.22
+go 1.26
 
 require (
 	github.com/eaglexiang/go v0.0.0-20200118081223-27a5a7090ed4

@@ -9,6 +9,10 @@ import (
 )
 
 func Test_SaveLoad(t *testing.T) {
+	path.HomeDir = t.TempDir()
+	defer func() {
+		path.HomeDir = ""
+	}()
 	path.Init(path.Client)
 
 	Set("123", 123)
