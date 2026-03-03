@@ -11,13 +11,13 @@ var defaultlogger = NewLogger()
 func Set(level LogLevel) { defaultlogger.Set(level) }
 
 // Info :
-func Info(ctx context.Context, m ...interface{}) { defaultlogger.Info(ctx, m) }
+func Info(ctx context.Context, m ...interface{}) { defaultlogger.Info(ctx, m...) }
 
 // Warning :
-func Warning(ctx context.Context, m ...interface{}) { defaultlogger.Warning(ctx, m) }
+func Warning(ctx context.Context, m ...interface{}) { defaultlogger.Warning(ctx, m...) }
 
 // Error :
-func Error(ctx context.Context, m ...interface{}) { defaultlogger.Error(ctx, m) }
+func Error(ctx context.Context, m ...interface{}) { defaultlogger.Error(ctx, m...) }
 
 // Logger :
 type Logger interface {

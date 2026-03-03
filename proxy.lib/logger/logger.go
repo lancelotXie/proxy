@@ -43,7 +43,7 @@ func (l *logger) judgelog(ctx context.Context, num LogLevel, header string, opts
 	level := atomic.LoadInt64(&l.val)
 	if int64(num) >= level {
 		ctxinfo := ctxtransid.GetID(ctx)
-		res := trans2string(ctx, header, opts)
+		res := trans2string(ctx, header, opts...)
 		log.Printf("%s\tid:%s\t%s\n", header, ctxinfo, res)
 	}
 }
@@ -62,7 +62,7 @@ func trans2string(ctx context.Context, header string, opts ...interface{}) (res 
 func dealInterface(lstparam []interface{}) (res []interface{}) {
 	for _, v := range lstparam {
 		if _v, ok := v.([]interface{}); ok {
-			res = dealInterface(_v)
+			res = append(res, dealInterface(_v)...)
 		} else {
 			res = append(res, v)
 		}
@@ -70,12 +70,12 @@ func dealInterface(lstparam []interface{}) (res []interface{}) {
 	return
 }
 
-func (l *logger) Info(ctx context.Context, m ...interface{}) { l.judgelog(ctx, INFO, infoheader, m) }
+func (l *logger) Info(ctx context.Context, m ...interface{}) { l.judgelog(ctx, INFO, infoheader, m...) }
 
 func (l *logger) Warning(ctx context.Context, m ...interface{}) {
-	l.judgelog(ctx, WARN, warnheader, m)
+	l.judgelog(ctx, WARN, warnheader, m...)
 }
 
-func (l *logger) Error(ctx context.Context, m ...interface{}) { l.judgelog(ctx, ERROR, errheader, m) }
+func (l *logger) Error(ctx context.Context, m ...interface{}) { l.judgelog(ctx, ERROR, errheader, m...) }
 
 func (l *logger) SetOutput(w io.Writer) { log.SetOutput(w) }
