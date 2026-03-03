@@ -13,6 +13,7 @@ import (
 	"context"
 	"log"
 	"net"
+	"sync/atomic"
 
 	"github.com/lancelotXie/proxy/proxy.client/parsers"
 
@@ -22,6 +23,27 @@ import (
 // Door 流量进入的大门
 type Door struct {
 	lis net.Listener
+}
+
+var activeConns int64
+var transitedBytes uint64
+
+type meteredConn struct {
+	net.Conn
+}
+
+func (m *meteredConn) Read(b []byte) (n int, err error) {
+	n, err = m.Conn.Read(b)
+	if n > 0 {
+		atomic.AddUint64(&transitedBytes, uint64(n))
+	}
+	return
+}
+
+func SnapshotMetrics() (active int64, bytes uint64) {
+	active = atomic.LoadInt64(&activeConns)
+	bytes = atomic.LoadUint64(&transitedBytes)
+	return
 }
 
 // NewDoor 构造新的 Door
@@ -68,7 +90,9 @@ func _handleReq(ctx context.Context, left net.Conn) (err error) {
 		return
 	}
 
-	t := createTunnel(renew, right)
+	atomic.AddInt64(&activeConns, 1)
+	defer atomic.AddInt64(&activeConns, -1)
+	t := createTunnel(&meteredConn{Conn: renew}, &meteredConn{Conn: right})
 	log.Println("开始流动：", t.Left().RemoteAddr(), "<>", t.Right().RemoteAddr())
 	t.Flow()
 	log.Println("结束流动：", t.Left().RemoteAddr(), "<>", t.Right().RemoteAddr())

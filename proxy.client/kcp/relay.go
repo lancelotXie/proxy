@@ -2,10 +2,10 @@ package kcp
 
 import (
 	"context"
-	"log"
 	"net"
 
 	"github.com/lancelotXie/proxy/proxy.lib/configuration"
+	"github.com/lancelotXie/proxy/proxy.lib/logger"
 	"github.com/lancelotXie/proxy/proxy.lib/net/kcp"
 	"github.com/lancelotXie/proxy/proxy.lib/net/relay"
 
@@ -13,33 +13,36 @@ import (
 )
 
 // Start 开始 KCP 转发服务
-func Start(ctx context.Context) (err error) {
+func Start(ctx context.Context, listenAddr string) (err error) {
 	addr, ok := configuration.GetString("remote.addr")
 	if !ok {
-		log.Println("缺失 KCP 远端地址")
+		err = errors.New("missing KCP remote address")
+		logger.Error(ctx, "Start KCP relay failed: ", err)
 		return
 	}
-	log.Println("KCP 远端地址为：", addr)
+	logger.Info(ctx, "KCP 远端地址为：", addr)
 
-	lis, err := net.Listen("tcp", "127.0.0.1:9529")
+	if listenAddr == "" {
+		listenAddr = "127.0.0.1:9529"
+	}
+	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		err = errors.WithStack(err)
 		return
 	}
-	log.Println("KCP 转发服务成功监听：127.0.0.1:9529")
+	logger.Info(ctx, "KCP 转发服务成功监听：", listenAddr)
 
 	dialer := func() (conn net.Conn, err error) {
-		addr, ok := configuration.GetString("remote.addr")
-		if !ok {
-			err = errors.WithStack(configuration.ErrRemoteAddrNotFound)
-			return
-		}
-
 		conn, err = kcp.Dial(addr)
 		return
 	}
 
 	s := relay.New(ctx, dialer, lis)
-	s.Start()
+	err = s.Start()
+	if err != nil {
+		err = errors.WithStack(err)
+		logger.Error(ctx, "Start KCP relay failed: ", err)
+		return
+	}
 	return
 }

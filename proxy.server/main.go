@@ -5,16 +5,20 @@ import (
 	"flag"
 	"log"
 	"net"
+	"time"
 
 	configuration "github.com/lancelotXie/proxy/proxy.lib/configuration"
 	config "github.com/lancelotXie/proxy/proxy.lib/configuration/grpc"
 	"github.com/lancelotXie/proxy/proxy.lib/debug"
+	"github.com/lancelotXie/proxy/proxy.lib/logger"
 	mynet "github.com/lancelotXie/proxy/proxy.lib/net"
 	path "github.com/lancelotXie/proxy/proxy.lib/path"
+	flow "github.com/lancelotXie/proxy/proxy.server/flow"
 	"github.com/lancelotXie/proxy/proxy.server/kcp"
 	service "github.com/lancelotXie/proxy/proxy.server/server"
 
 	"github.com/pkg/errors"
+	kcpgo "github.com/xtaci/kcp-go"
 )
 
 // ErrLocalListenAddrNotFound 本地监听地址不存在
@@ -27,6 +31,7 @@ func main() {
 
 	ctrlPort := initSystem()
 	defer closeSystem()
+	startMetrics()
 
 	// 开启代理服务
 	server, err := initProxyServer()
@@ -52,6 +57,31 @@ func main() {
 	if err != nil {
 		log.Println(err)
 	}
+}
+
+func startMetrics() {
+	const interval = time.Second * 60
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		var lastBytes uint64
+		for range ticker.C {
+			active, bytes := flow.SnapshotMetrics()
+			snmp := kcpgo.DefaultSnmp.Copy()
+			bps := uint64(0)
+			if bytes >= lastBytes {
+				bps = (bytes - lastBytes) / uint64(interval/time.Second)
+			}
+			lastBytes = bytes
+			logger.Info(
+				context.Background(),
+				"metrics role=server active=", active,
+				" bps=", bps,
+				" kcp.retrans=", snmp.RetransSegs,
+				" kcp.lost=", snmp.LostSegs,
+			)
+		}
+	}()
 }
 
 func initSystem() (portInt int) {

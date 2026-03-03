@@ -3,6 +3,7 @@ package flow
 import (
 	"context"
 	"net"
+	"sync/atomic"
 
 	"github.com/lancelotXie/proxy/proxy.lib/ctxtransid"
 	"github.com/lancelotXie/proxy/proxy.lib/logger"
@@ -16,9 +17,27 @@ type Conn2Net interface {
 }
 
 // Conn2Conn : 连通2个net.Conn
-type Conn2Conn struct {
-	leftconn  net.Conn
-	rightconn net.Conn
+type Conn2Conn struct{}
+
+var activeConns int64
+var transitedBytes uint64
+
+type meteredConn struct {
+	net.Conn
+}
+
+func (m *meteredConn) Read(b []byte) (n int, err error) {
+	n, err = m.Conn.Read(b)
+	if n > 0 {
+		atomic.AddUint64(&transitedBytes, uint64(n))
+	}
+	return
+}
+
+func SnapshotMetrics() (active int64, bytes uint64) {
+	active = atomic.LoadInt64(&activeConns)
+	bytes = atomic.LoadUint64(&transitedBytes)
+	return
 }
 
 // Close :
@@ -33,11 +52,11 @@ func (c *Conn2Conn) Trans(ctx context.Context, lconn net.Conn, rconn net.Conn) {
 	if rconn == nil {
 		logger.Error(ctx, "右边连接为nil")
 	}
-	c.leftconn = lconn
-	c.rightconn = rconn
+	atomic.AddInt64(&activeConns, 1)
+	defer atomic.AddInt64(&activeConns, -1)
 	t := tunnel.GetTunnel()
-	t.SetLeft(lconn)
-	t.SetRight(rconn)
+	t.SetLeft(&meteredConn{Conn: lconn})
+	t.SetRight(&meteredConn{Conn: rconn})
 	logger.Info(ctx, "Tunnel 开始流通")
 	id := ctxtransid.GetID(ctx)
 	t.Flow()
