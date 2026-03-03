@@ -74,18 +74,26 @@ func (s *grpcServer) Close() (err error) {
 
 // Accept :
 func (s *grpcServer) Accept() (ctx context.Context, conn net.Conn, err error) {
-	var ok = false
+	var ok bool
 	select {
-	case err = <-s.grpcerr:
+	case err, ok = <-s.grpcerr:
+		if !ok || err == nil {
+			err = errors.New("err: grpc serve loop was closed")
+		}
 		logger.Error(context.Background(), err)
 		return
 	case err, ok = <-s.err:
-		if !ok {
+		if !ok || err == nil {
 			err = errors.New("err: grpc server was closed")
 			logger.Error(context.Background(), err)
 		}
 		return
-	case t := <-s.connections:
+	case t, ok := <-s.connections:
+		if !ok || t.conn == nil {
+			err = errors.New("err: grpc connection channel was closed")
+			logger.Error(context.Background(), err)
+			return
+		}
 		conn = t.conn
 		ctx = t.ctx
 		logger.Info(t.ctx, "accept 服务端收到grpc连接")

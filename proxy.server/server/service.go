@@ -34,7 +34,7 @@ func (s *server) serve(lis grpc.Service) {
 		if err != nil {
 			logger.Error(context.Background(), err)
 			log.Println("err:accept failed", err)
-			continue
+			return
 		}
 		logger.Info(ctx, "服务端收到 grpc server 连接")
 		go func() {
