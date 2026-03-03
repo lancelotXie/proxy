@@ -88,7 +88,7 @@ func TestDualStream(t *testing.T) {
 func TestDualStreamOnce(t *testing.T) {
 	var (
 		size        = 1000
-		ip          = "144.144.144.144"
+		ip          = ""
 		port        = 443
 		network     = "tcp"
 		streamCount = 0

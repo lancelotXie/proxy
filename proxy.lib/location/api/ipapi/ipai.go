@@ -10,9 +10,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Resolv : 从 ipapi.co 网站的api 得到 ip 对应的 所在地
+// Resolv : 从 ip-api.com 网站的api 得到 ip 对应的 所在地
 func Resolv(ip string) (location base.Location, err error) {
-	url := "https://ipapi.co/" + ip + "/json/"
+	url := "http://ip-api.com/json/" + ip
 	mapBytes, err := getMap(url)
 	if err != nil {
 		return

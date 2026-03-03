@@ -2,8 +2,6 @@ package dial
 
 import (
 	"context"
-	"io"
-	"os"
 	"testing"
 	"time"
 
@@ -13,7 +11,7 @@ import (
 )
 
 var req = "GET / HTTP/1.1\r\n" +
-	"Host: www.huya.com\r\n" +
+	"Host: www.baidu.com\r\n" +
 	"Connection: keep-alive\r\n" +
 	"DNT: 1\r\n" +
 	"Upgrade-Insecure-Requests: 1\r\n" +
@@ -24,28 +22,26 @@ var req = "GET / HTTP/1.1\r\n" +
 
 func TestConn2Web(t *testing.T) {
 	var d Dial
-	var webip = "182.131.6.243"
+	var webip = "110.242.74.102"
 	var port int = 80
 	d = &WebServer{}
 	inaddr := address.New(webip, int(port), "")
 	conn, err := d.Conn2Web(context.TODO(), inaddr)
 	assert.Nil(t, err)
 	assert.NotNil(t, conn)
+	defer conn.Close()
+
+	// 设置 2 秒超时，替代原来的 os.Exit(0)
+	conn.SetDeadline(time.Now().Add(time.Second * 2))
+
 	conn.Write([]byte(req))
-	go func() {
-		time.Sleep(time.Second * 2)
-		os.Exit(0)
-	}()
 	for {
 		rbytes := make([]byte, 1024)
 		n, err := conn.Read(rbytes)
-		if err == io.EOF {
-			break
-		}
 		if err != nil {
+			// 超时或其他错误时退出循环
 			break
 		}
-		assert.Nil(t, err)
 		assert.NotZero(t, n)
 	}
 }
