@@ -3,11 +3,18 @@ package relay
 import (
 	"context"
 	"errors"
+	"io"
 	"net"
+	"sync"
 
-	"github.com/eaglexiang/go/tunnel"
 	"github.com/lancelotXie/proxy/proxy.lib/logger"
 )
+
+var bufferPool = sync.Pool{
+	New: func() interface{} {
+		return make([]byte, 32*1024)
+	},
+}
 
 // DialFunc 拨号函数
 type DialFunc func() (conn net.Conn, err error)
@@ -75,7 +82,32 @@ func (r *relay) handle(ctx context.Context, src net.Conn) {
 		return
 	}
 
-	tunnel.Flow(src, dst)
+	// 确保连接关闭
+	var closeOnce sync.Once
+	closeConns := func() {
+		closeOnce.Do(func() {
+			src.Close()
+			dst.Close()
+		})
+	}
+	defer closeConns()
+
+	// 监听上下文取消
+	stop := context.AfterFunc(ctx, closeConns)
+	defer stop()
+
+	// 启动一个 goroutine 处理 src <- dst
+	go func() {
+		defer closeConns()
+		buf := bufferPool.Get().([]byte)
+		defer bufferPool.Put(buf)
+		io.CopyBuffer(src, dst, buf)
+	}()
+
+	// 主 goroutine 处理 dst <- src
+	buf := bufferPool.Get().([]byte)
+	defer bufferPool.Put(buf)
+	io.CopyBuffer(dst, src, buf)
 }
 
 // Close 关闭服务
