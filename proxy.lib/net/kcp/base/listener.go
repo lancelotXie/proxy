@@ -15,12 +15,14 @@ type listener struct {
 }
 
 func listen(addr string) (lis *listener, err error) {
-	key := "test pass"
-	salt := "test salt"
-	pass := pbkdf2.Key([]byte(key), []byte(salt), 4096, 32, sha1.New)
-	block, _ := kcp.NewAESBlockCrypt(pass)
+	cfg := loadKCPSetting()
+	var block kcp.BlockCrypt
+	if cfg.key != "" && cfg.salt != "" {
+		pass := pbkdf2.Key([]byte(cfg.key), []byte(cfg.salt), 4096, 32, sha1.New)
+		block, _ = kcp.NewAESBlockCrypt(pass)
+	}
 
-	base, err := kcp.ListenWithOptions(addr, block, 10, 3)
+	base, err := kcp.ListenWithOptions(addr, block, cfg.dataShard, cfg.parityShard)
 	if err != nil {
 		err = errors.WithStack(err)
 	}
@@ -30,13 +32,13 @@ func listen(addr string) (lis *listener, err error) {
 		}
 	}()
 
-	if err = base.SetDSCP(46); err != nil {
+	if err = base.SetDSCP(cfg.dscp); err != nil {
 		return
 	}
-	if err = base.SetReadBuffer(16777217); err != nil {
+	if err = base.SetReadBuffer(cfg.readBuffer); err != nil {
 		return
 	}
-	if err = base.SetWriteBuffer(16777217); err != nil {
+	if err = base.SetWriteBuffer(cfg.writeBuffer); err != nil {
 		return
 	}
 
@@ -47,6 +49,7 @@ func listen(addr string) (lis *listener, err error) {
 
 // Accept 接收新的连接
 func (l *listener) Accept() (conn net.Conn, err error) {
+	cfg := loadKCPSetting()
 	s, err := l.base.AcceptKCP()
 	if err != nil {
 		err = errors.WithStack(err)
@@ -55,10 +58,10 @@ func (l *listener) Accept() (conn net.Conn, err error) {
 
 	s.SetStreamMode(true)
 	s.SetWriteDelay(false)
-	s.SetNoDelay(1, 10, 2, 1)
-	s.SetMtu(1350)
-	s.SetWindowSize(1024, 1024)
-	s.SetACKNoDelay(true)
+	s.SetNoDelay(cfg.noDelay, cfg.interval, cfg.resend, cfg.nc)
+	s.SetMtu(cfg.mtu)
+	s.SetWindowSize(cfg.sndWnd, cfg.rcvWnd)
+	s.SetACKNoDelay(cfg.ackNoDelay)
 
 	conn = s
 	return
